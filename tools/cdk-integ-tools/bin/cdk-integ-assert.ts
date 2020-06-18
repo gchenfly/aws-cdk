@@ -16,26 +16,28 @@ async function main() {
       throw new Error(`No such file: ${test.expectedFileName}. Run 'npm run integ'.`);
     }
 
-    const stackToDeploy = await test.determineTestStack();
     const expected = await test.readExpected();
 
-    const args = new Array<string>();
-    args.push('--no-path-metadata');
-    args.push('--no-asset-metadata');
-    args.push('--no-staging');
-    const actual = await test.invoke(['--json', ...args, 'synth', ...stackToDeploy], {
-      json: true,
-      ...DEFAULT_SYNTH_OPTIONS,
-    });
+    const then = Date.now();
+
+    const actual = await test.cdkSynthFast(DEFAULT_SYNTH_OPTIONS);
+
+    const afterSynth = Date.now();
+    const synthDuration = (afterSynth - then) / 1_000;
 
     const diff = diffTemplate(expected, actual);
+    const diffDuration = (Date.now() - afterSynth) / 1_000;
+
+    const duration = (Date.now() - then) / 1_000;
+
+    const durationStr = `${duration} seconds: synth=${synthDuration} + diff=${diffDuration}`;
 
     if (!diff.isEmpty) {
       failures.push(test.name);
-      process.stdout.write('CHANGED.\n');
+      process.stdout.write(`CHANGED (${durationStr}).\n`);
       formatDifferences(process.stdout, diff);
     } else {
-      process.stdout.write('OK.\n');
+      process.stdout.write(`OK (${durationStr}).\n`);
     }
   }
 
